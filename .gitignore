@@ -17,6 +17,9 @@ instance/
 .vscode/
 *.swp
 
+# Runtime settings (written by the UI)
+settings.json
+
 # Uploads / scratch
 uploads/
 *.txt

@@ -1,8 +1,11 @@
 """OCR processing: turn an uploaded PDF/image into extracted text.
 
 PDFs are rasterized page-by-page with PyMuPDF; images are normalized with
-Pillow. Each resulting page image is sent to a local GLM-OCR server through its
-OpenAI-compatible vision chat endpoint.
+Pillow. Each resulting page image is sent to a local GLM-OCR server (e.g.
+llama.cpp's llama-server) through its OpenAI-compatible vision chat endpoint.
+
+All connection settings are read live from ``settings`` so changes made in the
+web UI take effect on the next request without a restart.
 """
 
 import base64
@@ -13,7 +16,7 @@ import fitz  # PyMuPDF
 import requests
 from PIL import Image
 
-import config
+import settings
 
 
 class OCRError(Exception):
@@ -38,7 +41,7 @@ def _image_to_data_url(image: Image.Image) -> str:
 
 def _pdf_to_images(data: bytes) -> list[Image.Image]:
     images: list[Image.Image] = []
-    zoom = config.PDF_RENDER_DPI / 72.0
+    zoom = settings.get("pdf_dpi") / 72.0
     matrix = fitz.Matrix(zoom, zoom)
     with fitz.open(stream=data, filetype="pdf") as doc:
         if doc.page_count == 0:
@@ -60,15 +63,20 @@ def _bytes_to_images(data: bytes, extension: str) -> list[Image.Image]:
     return [image]
 
 
+def _chat_url(base_url: str) -> str:
+    return base_url.rstrip("/") + "/chat/completions"
+
+
 def _ocr_image(image: Image.Image) -> str:
     """Send a single image to the local GLM-OCR server and return its text."""
+    base_url = settings.get("base_url")
     payload = {
-        "model": config.GLM_OCR_MODEL,
+        "model": settings.get("model"),
         "messages": [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": config.GLM_OCR_PROMPT},
+                    {"type": "text", "text": settings.get("prompt")},
                     {
                         "type": "image_url",
                         "image_url": {"url": _image_to_data_url(image)},
@@ -78,21 +86,23 @@ def _ocr_image(image: Image.Image) -> str:
         ],
         "temperature": 0,
     }
-    url = config.GLM_OCR_BASE_URL.rstrip("/") + "/chat/completions"
     headers = {
-        "Authorization": f"Bearer {config.GLM_OCR_API_KEY}",
+        "Authorization": f"Bearer {settings.get('api_key')}",
         "Content-Type": "application/json",
     }
 
     try:
         response = requests.post(
-            url, json=payload, headers=headers, timeout=config.GLM_OCR_TIMEOUT
+            _chat_url(base_url),
+            json=payload,
+            headers=headers,
+            timeout=settings.get("timeout"),
         )
     except requests.exceptions.ConnectionError as exc:
         raise OCRError(
-            f"Could not connect to the GLM-OCR server at {config.GLM_OCR_BASE_URL}. "
-            "Is it running? You can change the address with the GLM_OCR_BASE_URL "
-            "environment variable."
+            f"Could not connect to the GLM-OCR server at {base_url}. Is it "
+            "running? You can change the address in Settings (or via the "
+            "GLM_OCR_BASE_URL environment variable)."
         ) from exc
     except requests.exceptions.Timeout as exc:
         raise OCRError("The GLM-OCR server took too long to respond.") from exc
@@ -107,6 +117,32 @@ def _ocr_image(image: Image.Image) -> str:
         return data["choices"][0]["message"]["content"].strip()
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise OCRError(f"Unexpected response from GLM-OCR server: {exc}") from exc
+
+
+def test_connection() -> dict:
+    """Ping the configured server's /models endpoint to verify connectivity."""
+    base_url = settings.get("base_url")
+    url = base_url.rstrip("/") + "/models"
+    headers = {"Authorization": f"Bearer {settings.get('api_key')}"}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+    except requests.exceptions.ConnectionError as exc:
+        raise OCRError(f"Could not connect to {base_url}. Is the server running?") from exc
+    except requests.exceptions.Timeout as exc:
+        raise OCRError(f"Connection to {base_url} timed out.") from exc
+
+    if response.status_code != 200:
+        raise OCRError(
+            f"Server reachable but returned HTTP {response.status_code} for /models."
+        )
+
+    models: list[str] = []
+    try:
+        body = response.json()
+        models = [m.get("id", "") for m in body.get("data", []) if isinstance(m, dict)]
+    except ValueError:
+        pass
+    return {"ok": True, "base_url": base_url, "models": models}
 
 
 def extract_text(data: bytes, extension: str) -> OCRResult:

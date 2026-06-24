@@ -17,7 +17,8 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 import config
-from ocr import OCRError, extract_text
+import settings
+from ocr import OCRError, extract_text, test_connection
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
@@ -35,17 +36,49 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/config")
+def _config_payload():
+    return {
+        "settings": settings.get(),
+        "defaults": dict(config.DEFAULT_SETTINGS),
+        "editable_keys": list(config.EDITABLE_KEYS),
+        "allowed_extensions": sorted(config.ALLOWED_EXTENSIONS),
+        "max_content_length": config.MAX_CONTENT_LENGTH,
+    }
+
+
+@app.route("/api/config", methods=["GET"])
 def api_config():
-    """Expose the (non-secret) backend settings so the UI can show them."""
-    return jsonify(
-        {
-            "base_url": config.GLM_OCR_BASE_URL,
-            "model": config.GLM_OCR_MODEL,
-            "allowed_extensions": sorted(config.ALLOWED_EXTENSIONS),
-            "max_content_length": config.MAX_CONTENT_LENGTH,
-        }
-    )
+    """Return the current runtime settings plus defaults and static config."""
+    return jsonify(_config_payload())
+
+
+@app.route("/api/config", methods=["POST"])
+def api_config_update():
+    """Update runtime settings from the UI."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        if payload.get("reset") is True:
+            settings.reset()
+        else:
+            settings.update(payload)
+    except settings.SettingsError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(_config_payload())
+
+
+@app.route("/api/test-connection", methods=["POST"])
+def api_test_connection():
+    """Apply any provided settings, then ping the GLM-OCR server."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        if payload:
+            settings.update(payload)
+        result = test_connection()
+    except settings.SettingsError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except OCRError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
+    return jsonify(result)
 
 
 @app.route("/api/extract", methods=["POST"])

@@ -16,24 +16,134 @@ const downloadBtn = document.getElementById("download-btn");
 const backendInfo = document.getElementById("backend-info");
 const acceptedTypes = document.getElementById("accepted-types");
 
+// Settings elements
+const settingsBtn = document.getElementById("settings-btn");
+const settingsOverlay = document.getElementById("settings-overlay");
+const settingsClose = document.getElementById("settings-close");
+const settingsForm = document.getElementById("settings-form");
+const settingsStatus = document.getElementById("settings-status");
+const testBtn = document.getElementById("test-btn");
+const resetBtn = document.getElementById("reset-btn");
+
+const SETTING_FIELDS = ["base_url", "model", "api_key", "pdf_dpi", "timeout", "prompt"];
+
 let currentFile = null;
 let downloadName = "extracted.txt";
 
 // --- Load backend info -----------------------------------------------------
-fetch("/api/config")
-  .then((r) => r.json())
-  .then((cfg) => {
-    backendInfo.textContent = `GLM-OCR @ ${cfg.base_url}  •  model: ${cfg.model}`;
-    const exts = cfg.allowed_extensions.map((e) => "." + e).join(", ");
-    acceptedTypes.textContent = "Accepted: " + exts;
-    fileInput.setAttribute(
-      "accept",
-      cfg.allowed_extensions.map((e) => "." + e).join(",")
-    );
-  })
-  .catch(() => {
-    backendInfo.textContent = "";
+function applyConfig(cfg) {
+  const s = cfg.settings || {};
+  backendInfo.textContent = `GLM-OCR @ ${s.base_url}  •  model: ${s.model}`;
+  const exts = cfg.allowed_extensions.map((e) => "." + e).join(", ");
+  acceptedTypes.textContent = "Accepted: " + exts;
+  fileInput.setAttribute("accept", cfg.allowed_extensions.map((e) => "." + e).join(","));
+  SETTING_FIELDS.forEach((key) => {
+    const el = document.getElementById("set-" + key);
+    if (el && s[key] !== undefined) el.value = s[key];
   });
+}
+
+function loadConfig() {
+  return fetch("/api/config")
+    .then((r) => r.json())
+    .then(applyConfig)
+    .catch(() => {
+      backendInfo.textContent = "";
+    });
+}
+loadConfig();
+
+// --- Settings panel --------------------------------------------------------
+function openSettings() {
+  settingsStatus.classList.add("hidden");
+  settingsOverlay.classList.remove("hidden");
+}
+function closeSettings() {
+  settingsOverlay.classList.add("hidden");
+}
+function settingsStatusMsg(kind, message) {
+  settingsStatus.className = "settings-status " + kind;
+  settingsStatus.textContent = message;
+  settingsStatus.classList.remove("hidden");
+}
+function collectSettings() {
+  const data = {};
+  SETTING_FIELDS.forEach((key) => {
+    const el = document.getElementById("set-" + key);
+    if (!el) return;
+    data[key] = el.type === "number" ? Number(el.value) : el.value;
+  });
+  return data;
+}
+
+settingsBtn.addEventListener("click", openSettings);
+settingsClose.addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsOverlay.classList.contains("hidden")) closeSettings();
+});
+
+settingsForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  settingsStatusMsg("loading", "Saving…");
+  try {
+    const resp = await fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectSettings()),
+    });
+    const cfg = await resp.json();
+    if (!resp.ok) {
+      settingsStatusMsg("error", "❌ " + (cfg.error || "Could not save settings."));
+      return;
+    }
+    applyConfig(cfg);
+    settingsStatusMsg("ok", "✓ Settings saved.");
+  } catch (err) {
+    settingsStatusMsg("error", "❌ " + err.message);
+  }
+});
+
+testBtn.addEventListener("click", async () => {
+  settingsStatusMsg("loading", "Testing connection…");
+  try {
+    const resp = await fetch("/api/test-connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectSettings()),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      settingsStatusMsg("error", "❌ " + (data.error || "Connection failed."));
+      return;
+    }
+    const models = data.models && data.models.length
+      ? " Models: " + data.models.join(", ")
+      : "";
+    settingsStatusMsg("ok", `✓ Connected to ${data.base_url}.${models}`);
+    loadConfig();
+  } catch (err) {
+    settingsStatusMsg("error", "❌ " + err.message);
+  }
+});
+
+resetBtn.addEventListener("click", async () => {
+  settingsStatusMsg("loading", "Resetting…");
+  try {
+    const resp = await fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reset: true }),
+    });
+    const cfg = await resp.json();
+    applyConfig(cfg);
+    settingsStatusMsg("ok", "✓ Reset to defaults.");
+  } catch (err) {
+    settingsStatusMsg("error", "❌ " + err.message);
+  }
+});
 
 // --- File selection --------------------------------------------------------
 function setFile(file) {

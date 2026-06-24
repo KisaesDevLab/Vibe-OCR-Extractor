@@ -9,6 +9,7 @@
 <body>
   <main class="container">
     <header>
+      <button type="button" id="settings-btn" class="settings-btn" title="Settings" aria-label="Settings">⚙️</button>
       <h1>📄 Vibe OCR Extractor</h1>
       <p class="subtitle">Upload a PDF or image, extract the text with your local GLM-OCR.</p>
       <p class="backend" id="backend-info"></p>
@@ -43,6 +44,62 @@
       <textarea id="result-text" class="result-text" spellcheck="false"></textarea>
     </section>
   </main>
+
+  <!-- Settings dialog -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal-header">
+        <h2 id="settings-title">⚙️ Settings</h2>
+        <button type="button" id="settings-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+
+      <form id="settings-form" class="settings-form">
+        <label>
+          <span>GLM-OCR Base URL</span>
+          <input type="text" name="base_url" id="set-base_url" placeholder="http://localhost:8080/v1" />
+          <small>Your llama.cpp server's OpenAI-compatible endpoint (include <code>/v1</code>).</small>
+        </label>
+
+        <label>
+          <span>Model name</span>
+          <input type="text" name="model" id="set-model" placeholder="glm-ocr" />
+        </label>
+
+        <label>
+          <span>API key</span>
+          <input type="password" name="api_key" id="set-api_key" placeholder="EMPTY" autocomplete="off" />
+          <small>Usually ignored by llama.cpp. Leave as <code>EMPTY</code> if unsure.</small>
+        </label>
+
+        <div class="field-row">
+          <label>
+            <span>PDF render DPI</span>
+            <input type="number" name="pdf_dpi" id="set-pdf_dpi" min="50" max="600" step="10" />
+            <small>Higher = sharper but slower (50–600).</small>
+          </label>
+          <label>
+            <span>Timeout (seconds)</span>
+            <input type="number" name="timeout" id="set-timeout" min="5" max="1800" step="5" />
+            <small>Per page (5–1800).</small>
+          </label>
+        </div>
+
+        <label>
+          <span>OCR prompt</span>
+          <textarea name="prompt" id="set-prompt" rows="4"></textarea>
+        </label>
+
+        <div id="settings-status" class="settings-status hidden"></div>
+
+        <div class="modal-actions">
+          <button type="button" id="test-btn" class="ghost-btn">🔌 Test connection</button>
+          <span class="spacer"></span>
+          <button type="button" id="reset-btn" class="ghost-btn">Reset to defaults</button>
+          <button type="submit" id="save-btn" class="primary-btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
