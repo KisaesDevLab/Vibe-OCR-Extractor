@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vibe OCR Extractor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>📄 Vibe OCR Extractor</h1>
+      <p class="subtitle">Upload a PDF or image, extract the text with your local GLM-OCR.</p>
+      <p class="backend" id="backend-info"></p>
+    </header>
+
+    <section id="dropzone" class="dropzone" tabindex="0" aria-label="Upload a file">
+      <input type="file" id="file-input" hidden />
+      <div class="dropzone-inner">
+        <div class="dropzone-icon">⬆️</div>
+        <p><strong>Drag &amp; drop</strong> a PDF or image here</p>
+        <p class="muted">or <button type="button" id="browse-btn" class="link-btn">browse your files</button></p>
+        <p class="muted small" id="accepted-types"></p>
+      </div>
+    </section>
+
+    <div id="selected-file" class="selected-file hidden">
+      <span id="selected-name"></span>
+      <button type="button" id="extract-btn" class="primary-btn">Extract text</button>
+      <button type="button" id="clear-btn" class="ghost-btn">Clear</button>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+
+    <section id="result-section" class="result-section hidden">
+      <div class="result-toolbar">
+        <h2>Extracted text <span id="page-count" class="muted small"></span></h2>
+        <div class="result-actions">
+          <button type="button" id="copy-btn" class="ghost-btn">Copy</button>
+          <button type="button" id="download-btn" class="primary-btn">⬇ Download .txt</button>
+        </div>
+      </div>
+      <textarea id="result-text" class="result-text" spellcheck="false"></textarea>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
