@@ -28,3 +28,4 @@ settings.json
 uploads/
 *.txt
 !requirements.txt
+!requirements-dev.txt
