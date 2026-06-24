@@ -16,3 +16,9 @@ settings.json
 !requirements.txt
 uploads/
 docker-compose.yml
+tests/
+samples/
+requirements-dev.txt
+pyproject.toml
+.ruff_cache/
+.pytest_cache/

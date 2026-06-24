@@ -159,6 +159,22 @@ in Settings.
 
 `pdf`, `png`, `jpg`, `jpeg`, `webp`, `bmp`, `tif`, `tiff`, `gif`
 
+## Try it quickly
+
+The [`samples/`](samples/) folder contains a `sample.pdf` and `sample.png` you
+can upload to verify the end-to-end flow once your llama.cpp server is running.
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .      # lint
+pytest            # run the test suite
+```
+
+Linting (ruff) and tests (pytest) also run in CI on every push and pull request
+via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
 ## Project layout
 
 ```
@@ -170,8 +186,12 @@ templates/        index.html (the GUI + settings dialog)
 static/           style.css, app.js
 Dockerfile        Container image (gunicorn)
 docker-compose.yml
+samples/          sample.pdf / sample.png for quick manual testing
+tests/            pytest suite
+.github/workflows/ci.yml               Lint (ruff) + tests (pytest)
 .github/workflows/docker-publish.yml   Build & publish to GHCR
 requirements.txt  Python dependencies
+requirements-dev.txt  Dev/test dependencies
 ```
 
 ## Notes
