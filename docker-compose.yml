@@ -1,0 +1,26 @@
+services:
+  vibe-ocr-extractor:
+    # Use the prebuilt image from GHCR...
+    image: ghcr.io/kisaesdevlab/vibe-ocr-extractor:latest
+    # ...or build locally instead by commenting the line above and uncommenting:
+    # build: .
+    container_name: vibe-ocr-extractor
+    ports:
+      - "5000:5000"
+    environment:
+      # Point at your llama.cpp server. From inside the container, the host
+      # machine is reachable as host.docker.internal (see extra_hosts below).
+      GLM_OCR_BASE_URL: "http://host.docker.internal:8080/v1"
+      GLM_OCR_MODEL: "glm-ocr"
+      GLM_OCR_API_KEY: "EMPTY"
+      SETTINGS_FILE: "/data/settings.json"
+    volumes:
+      # Persist UI-edited settings across restarts.
+      - ocr-settings:/data
+    extra_hosts:
+      # Lets the container reach a llama.cpp server running on the host.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  ocr-settings:
