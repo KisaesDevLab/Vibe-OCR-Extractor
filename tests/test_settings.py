@@ -45,11 +45,18 @@ def test_numeric_coercion_from_strings(temp_settings):
         {"timeout": 1},
         {"timeout": 99999},
         {"model": "   "},
+        {"extraction_mode": "bogus"},
     ],
 )
 def test_validation_rejects_bad_values(temp_settings, bad):
     with pytest.raises(settings.SettingsError):
         settings.update(bad)
+
+
+@pytest.mark.parametrize("mode", ["auto", "text", "ocr"])
+def test_extraction_mode_accepts_valid(temp_settings, mode):
+    settings.update({"extraction_mode": mode})
+    assert settings.get("extraction_mode") == mode
 
 
 def test_unknown_keys_are_ignored(temp_settings):

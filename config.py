@@ -31,7 +31,16 @@ DEFAULT_SETTINGS = {
     "timeout": int(_env("GLM_OCR_TIMEOUT", "180")),
     # DPI used when rasterizing PDF pages to images before OCR.
     "pdf_dpi": int(_env("PDF_RENDER_DPI", "200")),
+    # How to extract text from PDFs:
+    #   "auto"  - detect a text layer (pdf.js) and follow the converter's
+    #             routing: text layer -> text, scan -> OCR, mixed -> hybrid
+    #   "text"  - always use the pdf.js text layer (what the converter ingests)
+    #   "ocr"   - always rasterize and OCR (ignore any text layer)
+    "extraction_mode": _env("EXTRACTION_MODE", "auto"),
 }
+
+# Allowed values for the extraction_mode setting.
+EXTRACTION_MODES = ("auto", "text", "ocr")
 
 # Keys the UI is allowed to edit.
 EDITABLE_KEYS = tuple(DEFAULT_SETTINGS.keys())

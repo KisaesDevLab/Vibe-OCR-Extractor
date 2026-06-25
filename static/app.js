@@ -25,7 +25,18 @@ const settingsStatus = document.getElementById("settings-status");
 const testBtn = document.getElementById("test-btn");
 const resetBtn = document.getElementById("reset-btn");
 
-const SETTING_FIELDS = ["base_url", "model", "api_key", "pdf_dpi", "timeout", "prompt"];
+const resultMeta = document.getElementById("result-meta");
+const textLayerNote = document.getElementById("text-layer-note");
+
+const SETTING_FIELDS = [
+  "extraction_mode",
+  "base_url",
+  "model",
+  "api_key",
+  "pdf_dpi",
+  "timeout",
+  "prompt",
+];
 
 let currentFile = null;
 let downloadName = "extracted.txt";
@@ -41,6 +52,11 @@ function applyConfig(cfg) {
     const el = document.getElementById("set-" + key);
     if (el && s[key] !== undefined) el.value = s[key];
   });
+  if (textLayerNote) {
+    textLayerNote.textContent = cfg.text_layer_available
+      ? "✓ pdf.js text-layer extractor is installed."
+      : "⚠ Text-layer extractor not installed — Auto falls back to OCR and Text-layer-only will error. Run npm install in pdf_text/ or use Docker.";
+  }
 }
 
 function loadConfig() {
@@ -222,6 +238,7 @@ extractBtn.addEventListener("click", async () => {
     downloadName = data.filename || "extracted.txt";
     pageCount.textContent =
       data.page_count > 1 ? `(${data.page_count} pages)` : "";
+    renderResultMeta(data);
     resultSection.classList.remove("hidden");
     hideStatus();
     resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -256,6 +273,54 @@ downloadBtn.addEventListener("click", async () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+// --- Result metadata -------------------------------------------------------
+const METHOD_LABELS = {
+  text: "📝 Text layer (pdf.js — exact converter input)",
+  ocr: "🔍 OCR (GLM-OCR)",
+  hybrid: "🧩 Hybrid (text layer + OCR per page)",
+  image: "🔍 OCR (GLM-OCR)",
+};
+
+function renderResultMeta(data) {
+  if (!resultMeta) return;
+  const parts = [];
+  const label = METHOD_LABELS[data.method] || data.method || "";
+  parts.push(`<span class="badge badge-${data.method}">${label}</span>`);
+
+  const a = data.analysis;
+  if (a) {
+    const cov = Math.round((a.text_layer_coverage || 0) * 100);
+    const avg = Math.round(a.avg_chars_per_page || 0);
+    parts.push(
+      `<span class="meta-stat">text-layer route: <b>${a.route}</b></span>`,
+      `<span class="meta-stat">coverage: <b>${cov}%</b></span>`,
+      `<span class="meta-stat">avg chars/page: <b>${avg}</b></span>`
+    );
+    if (a.suspected_scan)
+      parts.push(`<span class="meta-stat warn">suspected scan</span>`);
+  }
+
+  // Per-page method chips (only meaningful for multi-page or mixed docs).
+  if (data.pages && data.pages.length > 1) {
+    const chips = data.pages
+      .map(
+        (p) =>
+          `<span class="page-chip chip-${p.method}" title="${p.chars} chars">p${p.index}:${p.method}</span>`
+      )
+      .join("");
+    parts.push(`<div class="page-chips">${chips}</div>`);
+  }
+
+  if (data.notes && data.notes.length) {
+    parts.push(
+      `<div class="meta-notes">${data.notes.map((n) => "ℹ " + n).join("<br>")}</div>`
+    );
+  }
+
+  resultMeta.innerHTML = parts.join(" ");
+  resultMeta.classList.remove("hidden");
+}
 
 // --- Helpers ---------------------------------------------------------------
 function setBusy(busy) {

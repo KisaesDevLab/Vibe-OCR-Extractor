@@ -17,8 +17,10 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 import config
+import extract as extractor
 import settings
-from ocr import OCRError, extract_text, test_connection
+import textlayer
+from ocr import OCRError, test_connection
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
@@ -41,6 +43,8 @@ def _config_payload():
         "settings": settings.get(),
         "defaults": dict(config.DEFAULT_SETTINGS),
         "editable_keys": list(config.EDITABLE_KEYS),
+        "extraction_modes": list(config.EXTRACTION_MODES),
+        "text_layer_available": textlayer.is_available(),
         "allowed_extensions": sorted(config.ALLOWED_EXTENSIONS),
         "max_content_length": config.MAX_CONTENT_LENGTH,
     }
@@ -108,7 +112,11 @@ def api_extract():
         return jsonify({"error": "The uploaded file is empty."}), 400
 
     try:
-        result = extract_text(data, extension)
+        result = extractor.extract(data, extension)
+    except textlayer.TextLayerUnavailable as exc:
+        return jsonify({"error": str(exc)}), 503
+    except textlayer.TextLayerError as exc:
+        return jsonify({"error": str(exc)}), 502
     except OCRError as exc:
         return jsonify({"error": str(exc)}), 502
     except Exception as exc:  # noqa: BLE001 - never leak a stack trace to the UI
@@ -118,8 +126,11 @@ def api_extract():
     return jsonify(
         {
             "text": result.text,
-            "pages": result.pages,
+            "method": result.method,
+            "pages": result.pages_summary(),
             "page_count": len(result.pages),
+            "analysis": result.analysis,
+            "notes": result.notes,
             "filename": f"{base_name}.txt",
             "source_filename": filename,
         }

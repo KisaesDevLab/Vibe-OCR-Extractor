@@ -22,3 +22,6 @@ requirements-dev.txt
 pyproject.toml
 .ruff_cache/
 .pytest_cache/
+node_modules/
+pdf_text/node_modules/
+npm-debug.log

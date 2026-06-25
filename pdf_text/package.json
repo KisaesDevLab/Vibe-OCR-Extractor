@@ -1,0 +1,10 @@
+{
+  "name": "vibe-ocr-pdf-text",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "pdf.js text-layer extractor mirroring Vibe-Transaction-Convertor preprocess.ts",
+  "dependencies": {
+    "pdfjs-dist": "4.7.76"
+  }
+}
