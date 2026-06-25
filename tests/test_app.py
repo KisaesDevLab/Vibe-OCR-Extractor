@@ -80,9 +80,15 @@ def test_extract_image(client, mock_ocr):
     assert body["text"] == "MOCK TEXT"
     assert body["page_count"] == 1
     assert body["filename"] == "scan.txt"
+    assert body["method"] == "image"
 
 
-def test_extract_pdf_multipage(client, mock_ocr):
+def test_extract_pdf_multipage_ocr(client, mock_ocr):
+    # Force OCR so the test does not depend on the Node text-layer extractor.
+    import settings
+
+    settings.update({"extraction_mode": "ocr"})
+
     doc = fitz.open()
     doc.new_page()
     doc.new_page()
@@ -97,8 +103,16 @@ def test_extract_pdf_multipage(client, mock_ocr):
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["page_count"] == 2
-    assert "Page 1" in body["text"]
-    assert "Page 2" in body["text"]
+    assert body["method"] == "ocr"
+    assert body["text"].count("MOCK TEXT") == 2
+    assert [p["method"] for p in body["pages"]] == ["ocr", "ocr"]
+
+
+def test_config_exposes_text_layer_availability(client):
+    body = client.get("/api/config").get_json()
+    assert "text_layer_available" in body
+    assert "extraction_modes" in body
+    assert set(body["extraction_modes"]) == {"auto", "text", "ocr"}
 
 
 def test_extract_backend_error(client, monkeypatch):

@@ -9,6 +9,10 @@ download it as a `.txt` file.
 ## Features
 
 - 📤 Drag-and-drop (or browse) upload for PDFs and common image formats
+- 📝 **Text-layer detection** — for PDFs that already contain a text layer, the
+  exact text is pulled with **pdf.js**, mirroring the
+  [Vibe-Transaction-Convertor](https://github.com/KisaesDevLab/Vibe-Transaction-Convertor)
+  so you see precisely what the converter will receive (no OCR needed)
 - 🧠 OCR via your **local GLM-OCR** server (OpenAI-compatible vision API)
 - ⚙️ **In-app Settings panel** — set the server IP/URL, model, API key, PDF
   DPI, timeout, and OCR prompt right from the browser (with a *Test connection*
@@ -35,12 +39,43 @@ This app is the front end — point it at any OpenAI-compatible endpoint with
 vision support. It is built and tested against **llama.cpp** (`llama-server`),
 which serves GLM-OCR on port `8080` by default.
 
+## Text layer vs OCR
+
+Bank/credit-card PDFs come in two flavors: **digitally generated** (they carry a
+real text layer) and **scanned** (just images). The converter extracts the text
+layer when present and only OCRs scans. This app does the same so you can preview
+the converter's exact input.
+
+Detection runs the same logic as the converter's `preprocess.ts` (via a small
+Node + `pdfjs-dist` helper in [`pdf_text/`](pdf_text/)):
+
+| Result | Meaning | What you get |
+| ------ | ------- | ------------ |
+| **text**   | >50% of pages have text **and** >100 avg chars/page | pdf.js text layer for every page |
+| **ocr**    | no text layer at all (a scan) | GLM-OCR for every page |
+| **hybrid** | some pages have text, others don't | text layer per text page, OCR for the scanned pages |
+
+The **Extraction mode** setting controls this:
+
+- **Auto** *(default)* — detect the text layer and follow the routing above
+- **Text layer only** — always use pdf.js (errors if no extractor is installed)
+- **OCR only** — always rasterize and OCR, ignoring any text layer
+
+After extraction the UI shows which method was used, the detected route,
+text-layer coverage, average chars/page, and a per-page method breakdown.
+
+> **Node requirement:** text-layer extraction uses `pdfjs-dist` and needs
+> Node.js. The Docker image bundles it. For a local Python run, install it once:
+> `cd pdf_text && npm install`. If Node isn't available, **Auto** falls back to
+> OCR and **Text layer only** reports an error.
+
 ## Settings (configurable from the UI)
 
 Click the **⚙️ gear** in the top-right to open Settings. You can change:
 
 | Setting           | Description                                              |
 | ----------------- | -------------------------------------------------------- |
+| **Extraction mode** | Auto / Text layer only / OCR only (see above)          |
 | **GLM-OCR Base URL** | Your llama.cpp endpoint, e.g. `http://localhost:8080/v1` |
 | **Model name**    | Model id as registered on the server (`glm-ocr`)         |
 | **API key**       | Usually ignored by llama.cpp; leave as `EMPTY`           |
@@ -58,16 +93,23 @@ they survive restarts.
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. (Optional) set defaults — or just configure them later in the UI
+# 2. Install the pdf.js text-layer extractor (needs Node.js)
+cd pdf_text && npm install && cd ..
+
+# 3. (Optional) set defaults — or just configure them later in the UI
 export GLM_OCR_BASE_URL="http://localhost:8080/v1"   # llama.cpp default port
 export GLM_OCR_MODEL="glm-ocr"
 
-# 3. Run the web app
+# 4. Run the web app
 python app.py
 
-# 4. Open the GUI
+# 5. Open the GUI
 #    http://127.0.0.1:5000
 ```
+
+> Step 2 is optional — the app runs without it, but text-layer detection is
+> disabled (everything goes through OCR). The Docker image includes Node, so no
+> extra step is needed there.
 
 ## Run with Docker
 
@@ -136,6 +178,9 @@ These set the **defaults** (the UI can override most of them at runtime):
 | `GLM_OCR_PROMPT`     | *(OCR instruction)*           | Instruction sent with each image                     |
 | `GLM_OCR_TIMEOUT`    | `180`                         | Per-image request timeout in seconds                 |
 | `PDF_RENDER_DPI`     | `200`                         | DPI used to rasterize PDF pages                      |
+| `EXTRACTION_MODE`    | `auto`                        | `auto` / `text` / `ocr` (text-layer routing)         |
+| `NODE_BIN`           | `node`                        | Node binary used for the pdf.js text-layer extractor |
+| `TEXT_LAYER_TIMEOUT` | `120`                         | Timeout (s) for the text-layer extractor             |
 | `SETTINGS_FILE`      | `settings.json` (`/data/...` in Docker) | Where UI settings are persisted          |
 | `MAX_CONTENT_LENGTH` | `52428800` (50 MB)            | Max upload size in bytes                             |
 | `HOST` / `PORT`      | `127.0.0.1` / `5000`          | Where the dev server listens (Docker uses `0.0.0.0`) |
@@ -168,6 +213,7 @@ can upload to verify the end-to-end flow once your llama.cpp server is running.
 
 ```bash
 pip install -r requirements-dev.txt
+cd pdf_text && npm install && cd ..   # for text-layer tests (else they skip)
 ruff check .      # lint
 pytest            # run the test suite
 ```
@@ -179,6 +225,9 @@ via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ```
 app.py            Flask routes (/, /api/extract, /api/download, /api/config, /api/test-connection)
+extract.py        Routing: PDF text layer vs OCR (text / ocr / hybrid)
+textlayer.py      Python wrapper around the pdf.js text-layer extractor
+pdf_text/         Node + pdfjs-dist helper (extract.mjs) mirroring the converter
 ocr.py            PDF/image → GLM-OCR → text
 settings.py       Runtime-editable settings, persisted to JSON
 config.py         Defaults and static configuration

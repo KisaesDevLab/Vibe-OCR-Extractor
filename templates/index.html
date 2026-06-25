@@ -41,6 +41,7 @@
           <button type="button" id="download-btn" class="primary-btn">⬇ Download .txt</button>
         </div>
       </div>
+      <div id="result-meta" class="result-meta hidden"></div>
       <textarea id="result-text" class="result-text" spellcheck="false"></textarea>
     </section>
   </main>
@@ -54,6 +55,16 @@
       </div>
 
       <form id="settings-form" class="settings-form">
+        <label>
+          <span>Extraction mode</span>
+          <select name="extraction_mode" id="set-extraction_mode">
+            <option value="auto">Auto — detect text layer, else OCR (match converter)</option>
+            <option value="text">Text layer only — pdf.js, exactly what the converter ingests</option>
+            <option value="ocr">OCR only — always rasterize &amp; GLM-OCR</option>
+          </select>
+          <small id="text-layer-note"></small>
+        </label>
+
         <label>
           <span>GLM-OCR Base URL</span>
           <input type="text" name="base_url" id="set-base_url" placeholder="http://localhost:8080/v1" />

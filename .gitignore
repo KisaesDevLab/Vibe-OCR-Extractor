@@ -11,6 +11,9 @@ env/
 instance/
 *.log
 
+# Node / pdf.js extractor deps
+node_modules/
+
 # Tooling caches
 .pytest_cache/
 .ruff_cache/

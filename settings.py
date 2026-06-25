@@ -47,6 +47,10 @@ def _validate(clean: dict) -> None:
         raise SettingsError("Timeout must be between 5 and 1800 seconds.")
     if "model" in clean and not str(clean["model"]).strip():
         raise SettingsError("Model name cannot be empty.")
+    if "extraction_mode" in clean and clean["extraction_mode"] not in config.EXTRACTION_MODES:
+        raise SettingsError(
+            "Extraction mode must be one of: " + ", ".join(config.EXTRACTION_MODES)
+        )
 
 
 def load() -> dict:
