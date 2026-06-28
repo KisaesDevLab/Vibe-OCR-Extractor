@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I3D3227TTP)
+
 # Vibe-OCR-Extractor
 
 A simple web GUI to upload a **PDF or image**, run it through your **local
